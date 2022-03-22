@@ -1,0 +1,319 @@
+library(dplyr)
+library(ROSE)
+library(usdata)
+library(rpart)
+library(caret)
+library(nnet)
+
+df1_state <- read.csv("/Users/akshaysheokand/OneDrive - University of Illinois at Chicago/Fall 2021/IDS572/Homework/Assignment3/MortgageDefaultersData_stateData.csv")
+df2_mort <-read.csv("/Users/akshaysheokand/OneDrive - University of Illinois at Chicago/Fall 2021/IDS572/Homework/Assignment3/MortgageDefaultersData_mortageDefaulter.csv")
+View(df1_state)
+
+
+df1_state$State[df1_state$State=="Districto Columbia"] <- "District of Columbia"
+df1_state$State[df1_state$State=="New Maxico"] <- "New Mexico"
+df1_state$State <- state2abbr(df1_state$State)
+
+dim(df1_state)
+dim(df2_mort)
+df3 <- merge(df2_mort, df1_state)
+dim(df3)
+df3 <- df3 %>%
+  filter(LoanValuetoAppraised!="#DIV/0!")
+dim(df3)
+
+
+# ANALYSING EFFECT OF DTI OVER STATUS
+df3$newratio <- ifelse(df3$DTI.Ratio <= 0.2 , "<=0.2", ">0.2")
+df3%>% count(newratio,Status)
+
+
+# ANALYSING EFFECT OF AGE OVER STATUS
+df3$age45 <- ifelse(df3$Bo_Age >= 45, "old" , "young")
+df3 %>% count(age45,Status)
+df3 %>% count(age45,newratio,Status)
+
+df3$age35 <- ifelse(df3$Bo_Age >= 35, "old" , "young")
+df3 %>% count(age35,Status)
+df3 %>% count(age35,newratio,Status)
+
+df3$age25 <- ifelse(df3$Bo_Age >= 25, "old" , "young")
+df3 %>% count(age25,Status)
+df3 %>% count(age25,newratio,Status)
+
+
+# ANALYSING EFFECT OF CREDIT SCORE OVER STATUS
+df3$score75 <- ifelse(df3$Credit_score >= 750, "GE_750" , "LE_750")
+df3 %>% count(score75,Status)
+df3 %>% count(score75,newratio,Status)
+
+df3$score70 <- ifelse(df3$Credit_score >= 700, "GE_700" , "LE_700")
+df3 %>% count(score70,Status)
+df3 %>% count(score70,newratio,Status)
+
+df3$score65 <- ifelse(df3$Credit_score >= 650, "GE_650" , "LE_650")
+df3 %>% count(score65,Status)
+df3 %>% count(score65,newratio,Status)
+
+df3$score60 <- ifelse(df3$Credit_score >= 600, "GE_600" , "LE_600")
+df3 %>% count(score60,Status)
+df3 %>% count(score60,newratio,Status)
+
+
+# ANALYSING EFFECT OF FIRST_HOME OVER STATUS
+df3 %>% count(First_home,Status)
+df3 %>% count(First_home,newratio,Status)
+
+
+
+# ANALYSING EFFECT OF UPB_APPRAISAL OVER STATUS
+df3 %>% count(UPB.Appraisal,Status)
+df3 %>% count(UPB.Appraisal,newratio,Status)
+
+
+# ANALYSING EFFECT OF LOAN AMOUNT OVER STATUS
+df3$loan_range <- df3$Ln_Orig
+df3$loan_range[df3$loan_range >=500000] <- -500
+df3$loan_range[df3$loan_range >=400000] <- -400
+df3$loan_range[df3$loan_range >=300000] <- -300
+df3$loan_range[df3$loan_range >=200000] <- -200
+df3$loan_range[df3$loan_range >=100000] <- -100
+df3$loan_range[df3$loan_range >=55000] <- -55
+df3$loan_range[df3$loan_range >=00] <- -10
+
+df3$loan_range[df3$loan_range ==-500] <- '>=500k'
+df3$loan_range[df3$loan_range ==-400] <- '400k-500k'
+df3$loan_range[df3$loan_range ==-300] <- '300k-400k'
+df3$loan_range[df3$loan_range ==-200] <- '200k-300k'
+df3$loan_range[df3$loan_range ==-100] <- '100k-200k'
+df3$loan_range[df3$loan_range ==-55] <- '55k-100k'
+df3$loan_range[df3$loan_range ==-10] <- '<55k'
+
+df3 %>% count(loan_range,Status)
+df3 %>% count(loan_range,newratio,Status)
+
+
+# ANALYSING EFFECT OF DEBT AMOUNT OVER STATUS
+df3$debt_range <- df3$Tot_mthly_debt_exp
+df3$debt_range[df3$debt_range >=4000] <- -400
+df3$debt_range[df3$debt_range >=3000] <- -300
+df3$debt_range[df3$debt_range >=2000] <- -200
+df3$debt_range[df3$debt_range >=1000] <- -100
+df3$debt_range[df3$debt_range >=000] <- -10
+
+df3$debt_range[df3$debt_range ==-400] <- '>=4K'
+df3$debt_range[df3$debt_range ==-300] <- '3k-4K'
+df3$debt_range[df3$debt_range ==-200] <- '2k-3k'
+df3$debt_range[df3$debt_range ==-100] <- '1k-2k'
+df3$debt_range[df3$debt_range ==-10] <- '<1k'
+
+df3 %>% count(debt_range,Status)
+df3 %>% count(debt_range,newratio,Status)
+
+
+
+# ANALYSING EFFECT OF INCOME AMOUNT OVER STATUS
+df3$inc_range <- df3$Tot_mthly_incm
+df3$inc_range[df3$inc_range >=20000] <- -2000
+df3$inc_range[df3$inc_range >=10000] <- -1000
+df3$inc_range[df3$inc_range >=5000] <- -500
+df3$inc_range[df3$inc_range >=2000] <- -200
+df3$inc_range[df3$inc_range >=1000] <- -100
+df3$inc_range[df3$inc_range >=00] <- -10
+
+df3$inc_range[df3$inc_range ==-2000] <- '>=20k'
+df3$inc_range[df3$inc_range ==-1000] <- '10k-20k'
+df3$inc_range[df3$inc_range ==-500] <- '5k-10k'
+df3$inc_range[df3$inc_range ==-200] <- '2k-5k'
+df3$inc_range[df3$inc_range ==-100] <- '1k-2k'
+df3$inc_range[df3$inc_range ==-10] <- '<1k'
+
+df3 %>% count(inc_range,Status)
+df3 %>% count(inc_range,newratio,Status)
+
+
+
+# ANALYSING EFFECT OF STATE MEDIAN INCOME OVER STATUS
+df3$inc40k <- ifelse(df3$median_income_01_04 >= 40000, "GE_40k" , "L_40k")
+df3 %>% count(inc40k,Status)
+df3 %>% count(inc40k,newratio,Status)
+
+df3$inc45k <- ifelse(df3$median_income_01_04 >= 45000, "GE_45k" , "L_45k")
+df3 %>% count(inc45k,Status)
+df3 %>% count(inc45k,newratio,Status)
+
+df3$inc50k <- ifelse(df3$median_income_01_04 >= 50000, "GE_50k" , "L_50k")
+df3 %>% count(inc50k,Status)
+df3 %>% count(inc50k,newratio,Status)
+
+
+# ANALYSING EFFECT OF STATE POVERTY PERCENTAGE OVER STATUS
+df3$pov8 <- ifelse(df3$perc_people_poverty_02_04 >= 8, "GE_8" , "L_8")
+df3 %>% count(pov8,Status)
+df3 %>% count(pov8,newratio,Status)
+
+df3$pov10 <- ifelse(df3$perc_people_poverty_02_04 >= 10, "GE_10" , "L_10")
+df3 %>% count(pov10,Status)
+df3 %>% count(pov10,newratio,Status)
+
+df3$pov12 <- ifelse(df3$perc_people_poverty_02_04 >= 12, "GE_12" , "L_12")
+df3 %>% count(pov12,Status)
+df3 %>% count(pov12,newratio,Status)
+
+df3$pov14 <- ifelse(df3$perc_people_poverty_02_04 >= 14, "GE_14" , "L_14")
+df3 %>% count(pov14,Status)
+df3 %>% count(pov14,newratio,Status)
+
+df3$pov16 <- ifelse(df3$perc_people_poverty_02_04 >= 16, "GE_16" , "L_16")
+df3 %>% count(pov16,Status)
+df3 %>% count(pov16,newratio,Status)
+
+df3 %>% count(perc_people_poverty_02_04,Status)
+df3 %>% count(perc_people_poverty_02_04,newratio,Status)
+
+df3 <- select(df3,-4)
+df3 <- select(df3,-11)
+
+View(df3)
+df4 <- df3
+View(df4)
+
+####
+
+colnames(df4)
+
+
+
+####
+dmy=select(df4,State,First_home,UPB.Appraisal,newratio,age45,age35,age25,score75,score70,score65,score60,loan_range,debt_range,inc_range,inc40k,inc45k,inc50k,pov8,pov10,pov12,pov14,pov16)
+
+
+dummy <- dummyVars( ~ ., data=dmy)
+dummy
+newdata <- data.frame(predict(dummy, newdata = dmy))
+head(newdata)
+
+Result=select(df4,OUTCOME,Bo_Age,Ln_Orig,Credit_score,Tot_mthly_debt_exp,
+                Tot_mthly_incm,orig_apprd_val_amt,pur_prc_amt,DTI.Ratio,
+                LoanValuetoAppraised,median_income_01_04,perc_people_poverty_02_04)
+alldata<- cbind(newdata,Result)
+View(alldata)
+
+df4<-alldata
+
+
+indx <- sample(2, nrow(df4), replace = TRUE, prob = c(0.75,0.25))
+train_data <- df4[indx == 1,]
+test_data <- df4[indx == 2 ,]
+
+
+train_data_A<-ovun.sample(OUTCOME~.,data= train_data,method="under",N=980)
+train_data_A<-data.frame(train_data_A$data)
+
+train_data_B<-ovun.sample(OUTCOME~.,data= train_data,method="under",N=2940)
+train_data_B<-data.frame(train_data_B$data)
+
+train_data_A %>% group_by(OUTCOME) %>% summarise(n=n())
+train_data_B %>% group_by(OUTCOME) %>% summarise(n=n())
+
+
+
+#Decision tree Model
+#Train_data_A
+tree_modelA <- rpart(OUTCOME~ ., data = train_data_A)
+tree_pred_class_trainA <- predict(tree_modelA, train_data_A, type = "class")
+tree_pred_class_testA <- predict(tree_modelA, test_data, type = "class")
+mean(train_data_A$OUTCOME != tree_pred_class_trainA)
+mean(test_data$OUTCOME != tree_pred_class_testA)
+confusionMatrix(as.factor(tree_pred_class_trainA), as.factor(train_data_A$OUTCOME))
+confusionMatrix(as.factor(tree_pred_class_testA), as.factor(test_data$OUTCOME))
+
+
+#Train_data_A
+tree_modelB <- rpart(OUTCOME~ ., data = train_data_B)
+tree_pred_class_trainB <- predict(tree_modelB, train_data_B, type = "class")
+tree_pred_class_testB <- predict(tree_modelB, test_data, type = "class")
+mean(train_data_B$OUTCOME != tree_pred_class_trainB)
+mean(test_data$OUTCOME != tree_pred_class_testB)
+confusionMatrix(as.factor(tree_pred_class_trainB), as.factor(train_data_B$OUTCOME))
+confusionMatrix(as.factor(tree_pred_class_testB), as.factor(test_data$OUTCOME))
+
+
+#Train_data
+tree_modelD <- rpart(OUTCOME~ ., data = train_data)
+tree_pred_class_trainD <- predict(tree_modelD, train_data, type = "class")
+mean(train_data$OUTCOME != tree_pred_class_trainD)
+
+
+#Test_data
+tree_full_pred_class <- predict(tree_modelD, test_data, type = "class")
+mean(test_data$OUTCOME != tree_full_pred_class)
+confusionMatrix(as.factor(tree_full_pred_class), as.factor(test_data$OUTCOME))
+
+
+
+
+
+#Logisitic regression model
+#train_data_A
+logitModel_A <- glm(as.factor(OUTCOME) ~ ., data = train_data_A, family = "binomial")
+Pred_A <- predict(logitModel_A, newdata = train_data_A, type = "response")
+Class_train_A <- ifelse(Pred_A >= 0.5, "non-default", "default")
+mean(train_data_A$OUTCOME==Class_train_A)
+cutoff=1/2
+prob.logitModel_A <- predict(logitModel_A, type = "response")
+predicted.logitModel_A <- prob.logitModel_A > cutoff
+predicted.logitModel_A_CM<- as.numeric(predicted.logitModel_A)#confusion matrix
+conf_traindata_A<-table(train_data_A$OUTCOME, predicted.logitModel_A_CM, dnn = c("Actual", "Predicted"))
+null.model <- glm(as.factor(OUTCOME) ~ 1, family = binomial, train_data_A)
+logit_modelA.step.aic<-step(null.model, scope=list(lower=null.model, upper=logitModel_A), k = 2, direction="forward")
+
+#for stepwise model --
+AICprob.logit_model_A <- predict(logit_modelA.step.aic, type = "response")
+predicted.logitModel_A1 <- as.numeric(AICprob.logit_model_A > cutoff)#confusion matrix
+table(train_data_A$OUTCOME, predicted.logitModel_A1, dnn = c("Actual", "Predicted"))
+
+
+#test_data_A
+id <- which(!(test_data_A$State %in% levels(train_data_A$State)))
+test_data_A$State[id] <- NA
+Pred_test_A <- predict(logitModel_A, newdata = test_data_A, type = "response")
+Class_test_A <- ifelse(Pred_test_A >= 0.5, "non-default", "default")
+mean(test_data_A$OUTCOME == Class_test_A)
+conf_testdata_A<-table(test_data_A$OUTCOME, predicted.logitModel_A_CM, dnn = c("Actual", "Predicted"))
+
+#train_data_B
+logitModel_B <- glm(as.factor(OUTCOME) ~ ., data = train_data_B, family = "binomial")
+Pred_B <- predict(logitModel_B, newdata = train_data_B, type = "response")
+Class_train_B <- ifelse(Pred_B >= 0.5, "non-default", "default")
+mean(train_data_B$OUTCOME == Class_train_B)
+
+#test_data_B
+id <- which(!(test_data_B$State %in% levels(train_data_B$State)))
+test_data_B$State[id] <- NA
+Pred_test_B <- predict(logitModel_B, newdata = test_data_B, type = "response")
+Class_test_B <- ifelse(Pred_test_B >= 0.5, "non-default", "default")
+mean(test_data_B$OUTCOME == Class_test_B)
+
+#train_data
+logitModel_D <- glm(as.factor(OUTCOME) ~ ., data = train_data, family = "binomial")
+Pred_D <- predict(logitModel_D, newdata = train_data, type = "response")
+Class_train <- ifelse(Pred_D >= 0.5, "non-default", "default")
+mean(train_data$OUTCOME == Class_train)
+
+#test_data
+Pred_test_D <- predict(logitModel_D, newdata = test_data, type = "response")
+Class_test <- ifelse(Pred_B >= 0.5, "non-default", "default")
+mean(test_data$OUTCOME == Class_test)
+
+#Neural network
+#Train_data
+X_train <- scale(train[, c(1:2)]) 
+y_train <- train$y 
+dim(y_train) <- c(length(y_train), 1) # add extra dimension to vector 
+X_test <- scale(test[, c(1:2)])
+y_test <- test$y 
+dim(y_test) <- c(length(y_test), 1)
+nn <- nnet(OUTCOME~.,data=train_data, linout=T, size=10, decay=0.01)
+
+

@@ -1,0 +1,137 @@
+library(foreign)
+library(caret)
+library(dplyr)
+library(randomForest)
+library(ROCR)
+
+data1<- read.arff("C:/Users/asheok2/Downloads/Training Dataset.arff")
+data_old<-read.arff("C:/Users/asheok2/Downloads/old.arff")
+data1$train<-"Train"
+data_old$train<-"Test"
+data2 <- rbind(data1, data_old)
+dim(data2)
+
+
+data2$having_IP_Address<-as.factor(data2$having_IP_Address)
+data2$URL_Length<-as.factor(data2$URL_Length)
+data2$Shortining_Service<-as.factor(data2$Shortining_Service)
+data2$having_At_Symbol<-as.factor(data2$having_At_Symbol)
+data2$double_slash_redirecting<-as.factor(data2$double_slash_redirecting)
+data2$Prefix_Suffix<-as.factor(data2$Prefix_Suffix)
+data2$having_Sub_Domain<-as.factor(data2$having_Sub_Domain)
+data2$SSLfinal_State<-as.factor(data2$SSLfinal_State)
+data2$Domain_registeration_length<-as.factor(data2$Domain_registeration_length)
+data2$Favicon<-as.factor(data2$Favicon)
+data2$port<-as.factor(data2$port)
+data2$HTTPS_token<-as.factor(data2$HTTPS_token)
+data2$Request_URL<-as.factor(data2$Request_URL)
+data2$URL_of_Anchor<-as.factor(data2$URL_of_Anchor)
+data2$Links_in_tags<-as.factor(data2$Links_in_tags)
+data2$SFH<-as.factor(data2$SFH)
+data2$Submitting_to_email<-as.factor(data2$Submitting_to_email)
+data2$Abnormal_URL<-as.factor(data2$Abnormal_URL)
+data2$Redirect<-as.factor(data2$Redirect)
+data2$on_mouseover<-as.factor(data2$on_mouseover)
+data2$RightClick<-as.factor(data2$RightClick)
+data2$popUpWidnow<-as.factor(data2$popUpWidnow)
+data2$Iframe<-as.factor(data2$Iframe)
+data2$age_of_domain<-as.factor(data2$age_of_domain)
+data2$DNSRecord<-as.factor(data2$DNSRecord)
+data2$web_traffic<-as.factor(data2$web_traffic)
+data2$Page_Rank<-as.factor(data2$Page_Rank)
+data2$Google_Index<-as.factor(data2$Google_Index)
+data2$Links_pointing_to_page<-as.factor(data2$Links_pointing_to_page)
+data2$Statistical_report<-as.factor(data2$Statistical_report)
+data2$Result<-as.factor(data2$Result)
+data2$train <- as.factor(data2$train)
+
+
+
+dummy <- dummyVars(data2$Result~ ., data=data2)
+dummy
+newdata <- data.frame(predict(dummy, newdata = data2))
+head(newdata)
+
+
+
+Result=data2$Result
+alldata<- cbind(newdata,Result)
+View(alldata)
+
+
+
+alldata = select(alldata, -train.Test)
+
+
+
+alldata_train <- alldata%>%
+  filter(train.Train==1)
+alldata_test <- alldata%>%
+  filter(train.Train==0)
+
+alldata_train = select(alldata_train, -train.Train)
+alldata_test = select(alldata_test, -train.Train)
+
+Data <- alldata_train[sample(nrow(alldata_train)), ]
+
+# -------------------------------------------------------------
+#Random forest with CV
+
+library(caret)
+set.seed(100)
+inTrain <- createDataPartition(y = alldata_train$Result, p = .7, list = FALSE)
+train <- alldata_train[inTrain, ]
+test <- alldata_train[- inTrain, ]
+fit.control <- caret::trainControl(method = "cv", number = 10)
+
+rf.fit <- caret::train(Result ~ .,
+                       data = train,
+                       method = "rf",
+                       trControl = fit.control)
+
+rf.fit
+plot(rf.fit)
+
+# ----------------------------------------------------
+#naive_bayes with 10k fold
+library(naivebayes)
+set.seed(100)
+trctrl <- trainControl(method = "cv", number = 10, savePredictions=TRUE)
+nb.fit <- train(Result ~ .,
+                data = alldata_train,
+                method = "naive_bayes",
+                trControl = trctrl)
+print(nb.fit)
+confusionMatrix(nb.fit)
+plot(nb.fit)
+
+#----------------------------------------------------------
+#Decison tree with 10k fold
+
+set.seed(12345)
+partition <- createDataPartition(y = Data$Result, p = 0.8, list = FALSE)
+train <- Data[partition, ]
+test <- Data[-partition, ]
+
+treemodel <- rpart(formula = Result ~ .,
+                   data = train,
+                   method = "class",
+                   xval=10      # 10-fold cross-validation 
+)
+treemodel
+tree_pred_prod <- predict(treemodel, test, type = "prob")
+tree_pred_class <- predict(treemodel, test, type = "class")
+test$Result == tree_pred_class #to find the accuracy of the model
+mean(test$Result == tree_pred_class)
+(conf <- confusionMatrix(data = tree_pred_class, 
+                         reference = test$Result))
+
+
+
+
+
+
+
+
+
+

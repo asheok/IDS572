@@ -1,0 +1,109 @@
+library(dplyr)
+library(tidyverse) #data manipulation
+library(modeest) 
+library(factoextra) #clustering algorithms & visualization
+library(cluster) #clustering algorithms
+
+
+pros <- read.csv("C:/Users/jsonav2/Downloads/prospect.csv")
+data<-pros
+data<-data.frame(data)
+View(data)
+data<-select(data,-c(ID,LOC))
+
+data$AGE[is.na(data$AGE)]<-mfv(data$AGE)
+data$INCOME[is.na(data$INCOME)]<-mfv(data$INCOME)
+data$SEX[data$SEX==""]<-mfv(data$SEX)
+data$MARRIED[is.na(data$MARRIED)]<-mfv(data$MARRIED)
+data$OWNHOME[is.na(data$OWNHOME)]<-mfv(data$OWNHOME)
+data$FICO..700[is.na(data$FICO..700)]<-mfv(data$FICO..700)
+data$SEX<-as.factor(data$SEX)
+data$SEX<-ifelse(data$SEX=="M",1,0)
+
+#To remove any missing value that might be present in the data
+
+data <- na.omit(data)
+
+#As we don’t want the clustering algorithm to depend to an arbitrary variable unit, 
+#we start by scaling/standardizing the data using the R function 
+
+df <- scale(data)
+
+distance <- get_dist(df)
+
+fviz_dist(distance, gradient = list(low = "#00AFBB", mid = "white", high = "#FC4E07"))
+#For k=4 Clusters, Variation between clusters is 63.0%
+set.seed(1234)
+
+#We can compute k-means in R with the kmeans function. Here will group the data into 
+#12 clusters (centers = 12). The kmeans function also has an nstart option that attempts multiple initial 
+#configurations and reports on the best one. For example, adding nstart = 25 will generate 25 initial configurations. 
+#This approach is often recommended
+km1<-kmeans(df,4,nstart=25)
+str(km1)
+
+#If we print the results we’ll see that our groupings resulted in 12 cluster. 
+#We see the cluster centers (means) for the 12 groups across the Seven variables. 
+#We also get the cluster assignment for each observation 
+
+fviz_cluster(km1,data = df)
+#This provides a nice illustration of the clusters. 
+#If there are more than two dimensions (variables) fviz_cluster will perform 
+#principal component analysis (PCA) and plot the data points according to the 
+#first two principal components that explain the majority of the variance.
+
+#Alternatively, we used standard pairwise scatter plots to illustrate the clusters 
+#compared to the original variables.
+
+df %>%
+  as_tibble() %>%
+  mutate(cluster = km1$cluster,
+         state = row.names(data)) %>%
+  ggplot(aes(AGE, INCOME,SEX,MARRIED,OWNHOME,LOC,CLIMATE, color = factor(cluster), label = state)) +
+  geom_text()
+
+#Because the number of clusters (k) must be set before we start the algorithm, it is often advantageous to use several different values of k and examine the differences in the results. 
+#We can execute the same process for 4, 5, 6, 7, 8 and 9 clusters, 
+#and the results are shown in the figure
+
+
+k3 <- kmeans(df, centers = 5, nstart = 25)
+k4 <- kmeans(df, centers = 6, nstart = 25)
+k5 <- kmeans(df, centers = 7, nstart = 25)
+k6 <- kmeans(df, centers = 8, nstart = 25)
+k7 <- kmeans(df, centers = 9, nstart = 25)
+# plots to compare
+p1 <- fviz_cluster(km1, geom = "point", data = df) + ggtitle("k = 4")
+p2 <- fviz_cluster(k3, geom = "point",  data = df) + ggtitle("k = 5")
+p3 <- fviz_cluster(k4, geom = "point",  data = df) + ggtitle("k = 6")
+p4 <- fviz_cluster(k5, geom = "point",  data = df) + ggtitle("k = 7")
+p5 <- fviz_cluster(k6, geom = "point",  data = df) + ggtitle("k = 8")
+p6 <- fviz_cluster(k7, geom = "point",  data = df) + ggtitle("k = 9")
+
+library(gridExtra)
+grid.arrange(p1, p2, p3, p4,p5,p6, nrow = 3)
+
+#the process to compute the “average silhoutte method” has been wrapped up in a single function 
+#(fviz_nbclust)
+
+fviz_nbclust(df, kmeans, method = "silhouette")
+
+# “average silhoutte method" suggested 9 as the number of optimal clusters.
+
+
+#For finding the best k value
+mydata<-df
+wss<-(nrow(mydata)-1)*sum(apply(mydata,2,var))
+for(i in 1:15)
+  wss[i]<-sum(kmeans(mydata, centers = i)$withinss)
+plot(1:15,wss,type = "b",xlab = "Number of clusters", ylab = "Within groups sum of squares", pch=20, cex=2)
+
+#silhouette(Euclidean)
+avg_sil<-function(k)
+{
+  kmModel<-kmeans(df, centers = k, nstart =100 )
+  ss<-silhouette(kmModel$cluster, dist(df))
+  mean(ss[,3])
+}
+
+avg_sil(9)

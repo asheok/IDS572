@@ -1,0 +1,50 @@
+library(dplyr)
+library(tidyverse)
+library(modeest)
+library(factoextra)
+library(cluster)
+
+
+pros <- read.csv("C://Users/kkonar2/OneDrive - University of Illinois at Chicago/Documents/Fall 2021/Data Mining/HW4/prospect.csv")
+data<-pros
+data<-data.frame(data)
+View(data)
+data<-select(data,-c(ID,LOC))
+
+data$AGE[is.na(data$AGE)]<-mfv(data$AGE)
+data$INCOME[is.na(data$INCOME)]<-mfv(data$INCOME)
+data$SEX[data$SEX==""]<-mfv(data$SEX)
+data$MARRIED[is.na(data$MARRIED)]<-mfv(data$MARRIED)
+data$OWNHOME[is.na(data$OWNHOME)]<-mfv(data$OWNHOME)
+data$FICO..700[is.na(data$FICO..700)]<-mfv(data$FICO..700)
+data$SEX<-as.factor(data$SEX)
+data$SEX<-ifelse(data$SEX=="M",1,0)
+
+data <- na.omit(data)
+
+
+#For k=4 Clusters, Variation between clusters is 63.0%
+set.seed(1234)
+km1<-kmeans(data,12,nstart=25)
+km1
+
+
+??kmeans
+
+#For finding the best k value
+mydata<-data
+wss<-(nrow(mydata)-1)*sum(apply(mydata,2,var))
+for(i in 1:15)
+  wss[i]<-sum(kmeans(mydata, centers = i)$withinss)
+plot(1:15,wss,type = "b",xlab = "Number of clusters", ylab = "Within groups sum of squares", pch=20, cex=2)
+
+#silhouette(Euclidean)
+avg_sil<-function(k)
+{
+  kmModel<-kmeans(data, centers = k, nstart =100 )
+  ss<-silhouette(kmModel$cluster, dist(data))
+  mean(ss[,3])
+}
+
+avg_sil(4)
+
